@@ -52,7 +52,7 @@ Uitgevoerd op de ontwikkelmachine (Chromium via Playwright, `localhost`): servic
 | 15 | Alle taken van vandaag afvinken | Jingle, sterretjes om de kolom, gouden rand blijft |
 | 16 | Morgen/volgende week/vorige week tikken | Gedimd, reageert niet |
 | 17 | Ouders ▸ Geluid uit, vinkje zetten | Wel 👍, geen geluid |
-| 18 | Zondag: laatste vinkje van de week | Confetti, muziek, Gefeliciteerd-scherm |
+| 18 | Ouders ▸ Geluid ▸ Test weekfeest (echt feest kan alleen op zondag) | Confetti, muziek, Gefeliciteerd-scherm; gegevens ongewijzigd |
 
 ## Bekende beperkingen
 - Gegevens in een Safari-tabblad en in de geïnstalleerde app zijn **gescheiden**; migreer via back-up. Wie eerst in Safari test, begint in de app met een leeg bord.

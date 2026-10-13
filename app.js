@@ -279,8 +279,11 @@ function renderSettings(){
   const srow=el('label','row'),cb=el('input',null,null,{type:'checkbox'});cb.checked=data.sound!==false;
   cb.onchange=()=>{data.sound=cb.checked;persist()};
   srow.append(cb,el('span',null,'Geluid en muziek bij vinkjes'));
-  root.append(srow,btn('🔊 Test geluid','',()=>play([[0,0,.25],[4,.15,.25],[7,.3,.4]],{force:true})),
-    el('p','small','Hoor je niets? Zet het volume hoger en controleer de stil-schakelaar van de iPad.'));
+  const tests=el('div','actions');
+  tests.append(btn('🔊 Test geluid','',()=>play([[0,0,.25],[4,.15,.25],[7,.3,.4]],{force:true})),
+    btn('🎉 Test weekfeest','',()=>{const k=data.children[settingsChild];dlg.close();setTimeout(()=>party(k),60)}));
+  root.append(srow,tests,
+    el('p','small','Hoor je niets? Zet het volume hoger en controleer de stil-schakelaar van de iPad. De test van het weekfeest wijzigt geen gegevens en volgt de geluidsinstelling.'));
 
   root.append(el('h3',null,'Namen en plaatjes'));
   data.children.forEach((k,i)=>{
