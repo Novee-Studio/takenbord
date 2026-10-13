@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f5f7fb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Takenbord">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="stylesheet" href="app.css">
+<title>Onze takenborden</title>
+</head>
+<body>
+<header>
+  <div><h1>Mijn takenbord</h1><p>Elke dag een beetje zelfstandiger</p></div>
+  <button type="button" class="btn" id="parentBtn" aria-label="Instellingen voor ouders">⚙️ Ouders<span class="badge" id="badge" hidden>!</span></button>
+</header>
+<div id="banner" class="banner" role="alert" hidden></div>
+<main>
+  <div class="tabs" id="tabs" role="tablist" aria-label="Kies kind"></div>
+  <section class="panel">
+    <div class="nav">
+      <button type="button" class="btn" id="prev">← Vorige</button>
+      <strong id="week"></strong>
+      <button type="button" class="btn" id="next">Volgende →</button>
+    </div>
+    <div class="toolbar">
+      <div class="grow"><div class="progress" id="progress"></div><div class="bar"><div class="fill" id="fill"></div></div></div>
+      <button type="button" class="btn" id="current">Deze week</button>
+    </div>
+    <div class="table-wrap"><table><thead id="head"></thead><tbody id="body"></tbody></table></div>
+    <p class="hint">Tik op een vakje als de taak klaar is. Tik nog eens om het vinkje weg te halen.</p>
+  </section>
+</main>
+
+<dialog id="parent" aria-label="Instellingen voor ouders"></dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
