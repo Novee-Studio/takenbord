@@ -230,7 +230,7 @@ function renderSettings(){
 }
 
 async function exportBackup(){
-  const text=JSON.stringify({format:'kinder-takenbord',exportedAt:new Date().toISOString(),...data},null,2);
+  const text=JSON.stringify({format:'kinder-takenbord',exportedAt:new Date().toISOString(),...data,lastBackup:keyDate(new Date())},null,2);
   const name='takenbord-backup-'+keyDate(new Date())+'.json';
   try{
     const file=new File([text],name,{type:'application/json'});
@@ -250,7 +250,7 @@ async function importBackup(ev){
     if(!p)throw Error('ongeldig');
     const n=Object.keys(p.checks).length;
     if(!confirm('Huidige gegevens vervangen door deze back-up ('+n+' vinkjes)?'))return;
-    p.lastBackup=p.lastBackup||null;
+    p.lastBackup=p.lastBackup||keyDate(new Date()); // zojuist uit een back-up hersteld = veilig bewaard
     data=p;selected=0;settingsChild=0;store.corrupt=false;persist();render();renderSettings();
   }catch(e){alert('Dit is geen geldige back-up van het takenbord.')}
   finally{ev.target.value=''}

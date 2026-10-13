@@ -1,6 +1,6 @@
 'use strict';
 // Verhoog VERSION bij elke wijziging aan een van de bestanden hieronder.
-const VERSION='v1';
+const VERSION='v2';
 const CACHE='takenbord-'+VERSION;
 const ASSETS=['./','index.html','app.css','app.js','manifest.webmanifest',
   'icons/apple-touch-icon.png','icons/icon-192.png','icons/icon-512.png','icons/icon-maskable-512.png'];
