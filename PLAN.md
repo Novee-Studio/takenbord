@@ -41,6 +41,19 @@ Uitgevoerd op de ontwikkelmachine (Chromium via Playwright, `localhost`): servic
 | 12 | Nieuwe versie: `VERSION` in `sw.js` ophogen, uploaden, app 2× openen met internet | Wijziging zichtbaar; data intact |
 | 13 | Safari-privémodus openen | Waarschuwing "Bewaren lukt niet" mogelijk (verwacht) |
 
+## Beloningen en vergrendeling (v3)
+- Alleen vandaag en eerdere dagen van de **huidige week** zijn aan te passen; toekomst en andere weken zijn vergrendeld (bladeren blijft mogelijk). Een gemiste dag is na de week definitief.
+- Vinkje: pling (toon stijgt per vinkje van die dag) + 👍. Dag compleet: jingle + sterretjes om de kolom, daarna gouden rand. Week compleet (kan alleen op zondag): confetti + muziek + scherm "Gefeliciteerd".
+- Geluid: standaard aan, uit te zetten onder Ouders ▸ Geluid (met testknop). Volgt volume en stil-schakelaar van de iPad. "Beweging verminderen" schakelt animaties uit.
+
+| # | Test op iPad | Verwacht |
+|---|---|---|
+| 14 | Vandaag een vinkje zetten | Pling en 👍 |
+| 15 | Alle taken van vandaag afvinken | Jingle, sterretjes om de kolom, gouden rand blijft |
+| 16 | Morgen/volgende week/vorige week tikken | Gedimd, reageert niet |
+| 17 | Ouders ▸ Geluid uit, vinkje zetten | Wel 👍, geen geluid |
+| 18 | Zondag: laatste vinkje van de week | Confetti, muziek, Gefeliciteerd-scherm |
+
 ## Bekende beperkingen
 - Gegevens in een Safari-tabblad en in de geïnstalleerde app zijn **gescheiden**; migreer via back-up. Wie eerst in Safari test, begint in de app met een leeg bord.
 - Apps op het beginscherm zijn uitgezonderd van Safari's 7-dagen-opschoning, maar iOS kan opslag bij zeer weinig ruimte alsnog wissen: maandelijks een back-up blijft nodig.
