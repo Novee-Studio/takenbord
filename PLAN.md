@@ -54,6 +54,22 @@ Uitgevoerd op de ontwikkelmachine (Chromium via Playwright, `localhost`): servic
 | 17 | Ouders ▸ Geluid uit, vinkje zetten | Wel 👍, geen geluid |
 | 18 | Ouders ▸ Geluid ▸ Test weekfeest (echt feest kan alleen op zondag) | Confetti, muziek, Gefeliciteerd-scherm; gegevens ongewijzigd |
 
+## Taken, kleuren en sterren (v5)
+- **Dagen per taak**: onder Ouders ▸ Taken kies je per taak de weekdagen. Andere dagen tonen een streepje en tellen niet mee voor "dag compleet".
+- **Ochtend/avond**: per taak te wisselen; kopjes verschijnen op het bord alleen als beide blokken taken bevatten. Volgorde met ↑↓ binnen een blok.
+- **Kopieer**: per taak naar één van de andere kinderen (dagen en blok mee, vinkjes niet). Dubbelen worden overgeslagen.
+- **Kleur per kind**: 8 kleuren; tabblad en bovenrand van het bord.
+- **Sterren**: 1 ⭐ per dag waarop alle (geldende) taken klaar zijn; weg als het vinkje wordt teruggedraaid. Doel (naam + aantal) per kind; "Beloning uitgeven" haalt het aantal van het potje af.
+- Oude back-ups blijven laden; ontbrekende velden krijgen standaardwaarden en sterren worden afgeleid uit complete dagen.
+
+| # | Test op iPad | Verwacht |
+|---|---|---|
+| 19 | Taak op één dag zetten, naar avond verplaatsen, ↑↓ | Streepje op andere dagen, kopje 🌙 Avond, volgorde klopt |
+| 20 | Taak kopiëren naar kind 2 | Taak staat daar met dezelfde dagen en hetzelfde blok |
+| 21 | Kleur wijzigen | Tab en bovenrand krijgen die kleur |
+| 22 | Doel "Filmavond" 2 ⭐, twee dagen compleet maken | Potje vult; "verdiend"; uitgeven zet het terug naar 0 |
+| 23 | Back-up maken, herstellen | Taken, kleuren, doel en sterren blijven gelijk |
+
 ## Bekende beperkingen
 - Gegevens in een Safari-tabblad en in de geïnstalleerde app zijn **gescheiden**; migreer via back-up. Wie eerst in Safari test, begint in de app met een leeg bord.
 - Apps op het beginscherm zijn uitgezonderd van Safari's 7-dagen-opschoning, maar iOS kan opslag bij zeer weinig ruimte alsnog wissen: maandelijks een back-up blijft nodig.

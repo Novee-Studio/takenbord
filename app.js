@@ -1,7 +1,10 @@
 'use strict';
 const KEY='kinder-takenbord-v2';
 const DAYS=['Ma','Di','Wo','Do','Vr','Za','Zo'];
+const ALL_DAYS=[0,1,2,3,4,5,6];
 const AVATARS=['🦊','🐼','🦁','🐙','🦄','🐸','🐯','🐵','🐰','🐧','🐶','🐱'];
+const COLORS=['#253f8b','#0f766e','#b45309','#be185d','#6d28d9','#15803d','#b91c1c','#0369a1'];
+const BLOCKS={ochtend:'☀️ Ochtend',avond:'🌙 Avond'};
 const ICONS=['🛏️','🧥','👟','📚','🧸','🪥','🍽️','🧺','🎒','🧼','🚿','👕','🧦','🪣','🐶','🌱','🥣','🥛','📖','🎹','🧹','🗑️','🧽','🧃','🧩','🚲','⭐','🌙','☀️','📝'];
 const DEFAULT_TASKS=[
   {id:'bed',icon:'🛏️',label:'Bed opmaken'},{id:'jas',icon:'🧥',label:'Jas ophangen'},
@@ -9,9 +12,22 @@ const DEFAULT_TASKS=[
   {id:'speelgoed',icon:'🧸',label:'Speelgoed opruimen'}];
 const EMOJI_LEAD=/^(\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*)\s*/u;
 const CHECK_KEY=/^[^|]+\|[^|]+\|\d{4}-\d{2}-\d{2}$/;
+const STAR_KEY=/^[^|]+\|\d{4}-\d{2}-\d{2}$/;
+const newId=()=>'taak'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
 
-const defaults=()=>({v:2,lastBackup:null,sound:true,checks:{},
-  children:[0,1,2].map(i=>({id:'kind'+i,name:'Kind '+(i+1),avatar:AVATARS[i],tasks:DEFAULT_TASKS.map(t=>({...t}))}))});
+const defaults=()=>({v:2,lastBackup:null,sound:true,checks:{},stars:{},
+  children:[0,1,2].map(i=>({id:'kind'+i,name:'Kind '+(i+1),avatar:AVATARS[i],color:COLORS[i],goal:null,spent:0,
+    tasks:DEFAULT_TASKS.map(t=>({...t,days:[...ALL_DAYS],block:'ochtend'}))}))});
+
+/* ---------- dag- en sterlogica (puur, werkt op meegegeven checks) ---------- */
+const weekdayOf=dk=>(new Date(dk+'T00:00:00').getDay()+6)%7;
+// Een taak telt op een dag mee als hij op die weekdag staat ingesteld of er al een vinkje staat.
+function dayStats(c,dk,checks){
+  const wd=weekdayOf(dk);let n=0,done=0;
+  for(const t of c.tasks){const on=!!checks[c.id+'|'+t.id+'|'+dk];if(on||t.days.includes(wd)){n++;if(on)done++}}
+  return {n,done};
+}
+const isComplete=s=>s.n>0&&s.done===s.n;
 
 // Accepteert v1- en v2-gegevens (opslag én back-upbestanden); geeft null bij ongeldige invoer.
 function normalize(p){
@@ -25,15 +41,32 @@ function normalize(p){
       if(!t||typeof t.id!=='string'||!t.id||typeof t.label!=='string')return null;
       let icon=typeof t.icon==='string'?t.icon:'',label=t.label;
       if(!icon){const m=label.match(EMOJI_LEAD);if(m){icon=m[1];label=label.slice(m[0].length)}}
-      tasks.push({id:t.id,icon:icon||'⭐',label:label.slice(0,70)||'Taak'});
+      let days=Array.isArray(t.days)?[...new Set(t.days.filter(d=>Number.isInteger(d)&&d>=0&&d<=6))].sort():[];
+      if(!days.length)days=[...ALL_DAYS];
+      tasks.push({id:t.id,icon:icon||'⭐',label:label.slice(0,70)||'Taak',days,block:t.block==='avond'?'avond':'ochtend'});
     }
-    children.push({id:c.id,name:c.name.slice(0,30)||'Kind '+(i+1),avatar:typeof c.avatar==='string'&&c.avatar?c.avatar:AVATARS[i],tasks});
+    const g=c.goal;
+    const goal=g&&typeof g.name==='string'&&g.name.trim()&&Number.isInteger(g.stars)&&g.stars>=1&&g.stars<=99?{name:g.name.trim().slice(0,40),stars:g.stars}:null;
+    children.push({id:c.id,name:c.name.slice(0,30)||'Kind '+(i+1),avatar:typeof c.avatar==='string'&&c.avatar?c.avatar:AVATARS[i],
+      color:typeof c.color==='string'&&/^#[0-9a-f]{6}$/i.test(c.color)?c.color:COLORS[i],goal,
+      spent:Number.isInteger(c.spent)&&c.spent>=0?c.spent:0,tasks});
   }
   if(new Set(children.map(c=>c.id)).size!==3)return null;
   const checks={};
   for(const k of Object.keys(p.checks))if(p.checks[k]===true&&CHECK_KEY.test(k))checks[k]=true;
+  const stars={};
+  if(p.stars&&typeof p.stars==='object'&&!Array.isArray(p.stars)){
+    const ids=new Set(children.map(c=>c.id));
+    for(const k of Object.keys(p.stars))if(p.stars[k]===true&&STAR_KEY.test(k)&&ids.has(k.split('|')[0]))stars[k]=true;
+  }else{ // oudere gegevens: sterren afleiden uit reeds complete dagen
+    for(const c of children){
+      const dates=new Set();
+      for(const k of Object.keys(checks)){const q=k.split('|');if(q[0]===c.id)dates.add(q[2])}
+      for(const dk of dates)if(isComplete(dayStats(c,dk,checks)))stars[c.id+'|'+dk]=true;
+    }
+  }
   const lb=typeof p.lastBackup==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(p.lastBackup)?p.lastBackup:null;
-  return {v:2,lastBackup:lb,sound:p.sound!==false,checks,children};
+  return {v:2,lastBackup:lb,sound:p.sound!==false,checks,stars,children};
 }
 
 /* ---------- opslag ---------- */
@@ -104,16 +137,35 @@ function updateAlerts(){
 }
 
 let cells=new Map(),heads=[],lastCells=[];
-const dayComplete=(child,dk)=>child.tasks.length>0&&child.tasks.every(t=>data.checks[child.id+'|'+t.id+'|'+dk]);
-const weekComplete=child=>[0,1,2,3,4,5,6].every(d=>dayComplete(child,keyDate(dateAt(d))));
+const dayComplete=(child,dk)=>isComplete(dayStats(child,dk,data.checks));
+function weekComplete(child){
+  const s=ALL_DAYS.map(d=>dayStats(child,keyDate(dateAt(d)),data.checks)).filter(x=>x.n>0);
+  return s.length>0&&s.every(isComplete);
+}
 // Alleen vandaag en eerdere dagen van de huidige week mogen worden aangepast.
 const editable=dk=>offset===0&&dk<=keyDate(new Date());
+// Taken van het ochtendblok eerst, daarna avond; binnen een blok de ingestelde volgorde.
+const ordered=c=>[...c.tasks.filter(t=>t.block!=='avond'),...c.tasks.filter(t=>t.block==='avond')];
+const earned=c=>Object.keys(data.stars).filter(k=>k.startsWith(c.id+'|')).length;
+const balance=c=>Math.max(0,earned(c)-c.spent);
+
+function renderPot(child){
+  const pot=$('pot'),bal=balance(child),g=child.goal;
+  pot.replaceChildren();
+  if(!g){pot.append(el('div','potline','⭐ '+bal+' gespaard'));return}
+  const reached=bal>=g.stars;
+  pot.append(el('div','potline'+(reached?' reached':''),reached?'🎁 '+g.name+' verdiend! Laat het een ouder weten.':'⭐ '+bal+' van '+g.stars+' voor '+g.name));
+  const bar=el('div','bar'),f=el('div','fill pot');
+  f.style.width=Math.min(100,bal/g.stars*100)+'%';bar.append(f);pot.append(bar);
+}
 
 function render(){
   const child=data.children[selected],today=keyDate(new Date());
+  document.documentElement.style.setProperty('--kid',child.color);
   const tabs=$('tabs');tabs.replaceChildren();
   data.children.forEach((c,i)=>{
     const b=el('button','tab'+(i===selected?' active':''),null,{type:'button',role:'tab','aria-selected':String(i===selected)});
+    b.style.borderColor=c.color;if(i===selected)b.style.background=c.color;
     b.append(el('span','av',c.avatar,{'aria-hidden':'true'}),document.createTextNode(c.name));
     b.onclick=()=>{selected=i;render()};tabs.append(b);
   });
@@ -121,47 +173,63 @@ function render(){
   $('week').textContent=pretty(start)+' – '+pretty(end)+' '+end.getFullYear();
   const head=$('head'),body=$('body');head.replaceChildren();body.replaceChildren();
   cells=new Map();heads=[];lastCells=[];
-  const dayDone=[0,1,2,3,4,5,6].map(d=>dayComplete(child,keyDate(dateAt(d))));
+  const dayDone=ALL_DAYS.map(d=>dayComplete(child,keyDate(dateAt(d))));
   const hr=el('tr');hr.append(el('th',null,'Taak',{scope:'col'}));
   for(let d=0;d<7;d++){
     const dt=dateAt(d),th=el('th',[keyDate(dt)===today?'today':'',dayDone[d]?'daydone':''].join(' ').trim()||null,DAYS[d]+' '+dt.getDate(),{scope:'col'});
     heads[d]=th;hr.append(th);
   }
   head.append(hr);
-  let done=0;
-  child.tasks.forEach(task=>{
+  const both=child.tasks.some(t=>t.block==='avond')&&child.tasks.some(t=>t.block!=='avond');
+  let done=0,total=0,lastBlock=null;
+  ordered(child).forEach(task=>{
+    if(both&&task.block!==lastBlock){
+      lastBlock=task.block;
+      const r=el('tr','blockrow');r.append(el('th',null,BLOCKS[task.block],{colspan:'8',scope:'colgroup'}));body.append(r);
+    }
     const row=el('tr'),th=el('th',null,null,{scope:'row'});
     th.append(el('span','ticon',task.icon,{'aria-hidden':'true'}),document.createTextNode(task.label));
     row.append(th);
     for(let d=0;d<7;d++){
-      const dt=dateAt(d),dk=keyDate(dt),id=child.id+'|'+task.id+'|'+dk,checked=!!data.checks[id],locked=!editable(dk);
-      if(checked)done++;
-      const cls='check'+(checked?' done':'')+(dk===today?' today':'')+(locked?' locked':'')+(dayDone[d]?' daydone':'');
-      const b=el('button',cls,checked?'✓':(locked?'':'○'),{type:'button',
-        'aria-label':task.label+', '+DAYS[d]+' '+pretty(dt)+', '+(checked?'gedaan':'nog niet gedaan')+(locked?' (kan niet meer of nog niet worden aangepast)':''),
-        'aria-pressed':String(checked)});
-      if(locked)b.disabled=true;else b.onclick=()=>toggle(child,id,d,dk);
-      cells.set(id,b);lastCells[d]=b;
-      const td=el('td');td.append(b);row.append(td);
+      const dt=dateAt(d),dk=keyDate(dt),id=child.id+'|'+task.id+'|'+dk,checked=!!data.checks[id],td=el('td');
+      let b;
+      if(!checked&&!task.days.includes(d)){
+        b=el('button','check na','–',{type:'button','aria-label':task.label+', '+DAYS[d]+' '+pretty(dt)+', geen taak op deze dag'});
+        b.disabled=true;
+      }else{
+        const locked=!editable(dk);
+        total++;if(checked)done++;
+        const cls='check'+(checked?' done':'')+(dk===today?' today':'')+(locked?' locked':'')+(dayDone[d]?' daydone':'');
+        b=el('button',cls,checked?'✓':(locked?'':'○'),{type:'button',
+          'aria-label':task.label+', '+DAYS[d]+' '+pretty(dt)+', '+(checked?'gedaan':'nog niet gedaan')+(locked?' (kan niet meer of nog niet worden aangepast)':''),
+          'aria-pressed':String(checked)});
+        if(locked)b.disabled=true;else b.onclick=()=>toggle(child,id,d,dk);
+        cells.set(id,b);
+      }
+      lastCells[d]=b;td.append(b);row.append(td);
     }
     body.append(row);
   });
-  const total=child.tasks.length*7;
-  const allToday=dayComplete(child,today);
-  $('progress').textContent=(allToday?'🎉 Alles klaar vandaag! ':'')+'⭐ '+done+' van '+total+' taken';
+  $('progress').textContent=(dayComplete(child,today)?'🎉 Alles klaar vandaag! ':'')+'✅ '+done+' van '+total+' taken';
   $('fill').style.width=(total?done/total*100:0)+'%';
+  renderPot(child);
   updateAlerts();
 }
 
 function toggle(child,id,d,dk){
   const wasDay=dayComplete(child,dk),wasWeek=weekComplete(child),adding=!data.checks[id];
   if(adding)data.checks[id]=true;else delete data.checks[id];
+  const sk=child.id+'|'+dk,dayNow=dayComplete(child,dk);
+  if(dayNow)data.stars[sk]=true;else delete data.stars[sk];   // 1 ster per complete dag, ook weer weg bij terugdraaien
   persist();render();
   if(!adding)return;
   thumbUp(cells.get(id));
   if(weekComplete(child)&&!wasWeek){sparkleColumn(d);party(child)}
-  else if(dayComplete(child,dk)&&!wasDay){sparkleColumn(d);play(JINGLE,{type:'triangle'})}
-  else play([[PENTA[Math.min(child.tasks.filter(t=>data.checks[child.id+'|'+t.id+'|'+dk]).length,PENTA.length)-1],0,.28]]);
+  else if(dayNow&&!wasDay){sparkleColumn(d);play(JINGLE,{type:'triangle'});setTimeout(()=>thumbUp(cells.get(id),'⭐ +1'),300)}
+  else{
+    const n=child.tasks.filter(t=>data.checks[child.id+'|'+t.id+'|'+dk]).length;
+    play([[PENTA[Math.min(n,PENTA.length)-1],0,.28]]);
+  }
 }
 
 /* ---------- geluid ---------- */
@@ -194,9 +262,9 @@ function play(seq,{type='sine',vol=.18,force=false}={}){
 
 /* ---------- effecten ---------- */
 const reduceMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
-function thumbUp(cell){
+function thumbUp(cell,txt){
   if(!cell)return;
-  const r=cell.getBoundingClientRect(),t=el('span','thumb','👍',{'aria-hidden':'true'});
+  const r=cell.getBoundingClientRect(),t=el('span','thumb',txt||'👍',{'aria-hidden':'true'});
   t.style.left=(r.left+r.width/2)+'px';t.style.top=(r.top+r.height/2)+'px';
   document.body.append(t);setTimeout(()=>t.remove(),1100);
 }
@@ -244,6 +312,7 @@ function party(child){
 
 /* ---------- ouderdialoog ---------- */
 const dlg=$('parent');
+let copying=null,note='';
 function openParent(){
   const a=2+Math.floor(Math.random()*8),b=3+Math.floor(Math.random()*7),f=el('form','dlg');
   const input=el('input',null,null,{type:'text',inputmode:'numeric',autocomplete:'off','aria-label':'Antwoord'});
@@ -260,8 +329,68 @@ function openParent(){
 
 function status(items){const ul=el('ul','status');items.forEach(([ok,text])=>ul.append(el('li',null,(ok===true?'✅ ':ok===false?'⚠️ ':'ℹ️ ')+text)));return ul}
 
-function renderSettings(){
+// Na elke wijziging wordt de dialoog opnieuw opgebouwd; de scrollpositie blijft behouden.
+function renderSettings(){const st=dlg.scrollTop;buildSettings();dlg.scrollTop=st}
+function refresh(){persist();render();renderSettings()}
+
+function moveTask(c,a,b){
+  const i=c.tasks.indexOf(a),j=c.tasks.indexOf(b);
+  [c.tasks[i],c.tasks[j]]=[c.tasks[j],c.tasks[i]];refresh();
+}
+
+function taskCard(c,t,list,idx){
+  const card=el('div','tcard');
+  const r1=el('div','row'),sel=el('select',null,null,{'aria-label':'Pictogram'});
+  ICONS.concat(ICONS.includes(t.icon)?[]:[t.icon]).forEach(i=>{const o=el('option',null,i);o.value=i;if(i===t.icon)o.selected=true;sel.append(o)});
+  sel.onchange=()=>{t.icon=sel.value;persist();render()};
+  const inp=el('input',null,null,{type:'text',maxlength:'70','aria-label':'Taak'});inp.value=t.label;
+  inp.onchange=()=>{t.label=inp.value.trim()||'Taak';inp.value=t.label;persist();render()};
+  r1.append(sel,inp);
+
+  const r2=el('div','row2');
+  const blk=btn(BLOCKS[t.block==='avond'?'avond':'ochtend'],'sm',()=>{t.block=t.block==='avond'?'ochtend':'avond';refresh()});
+  blk.setAttribute('aria-label','Blok: '+BLOCKS[t.block]+'. Tik om te wisselen');
+  const dg=el('div','days',null,{role:'group','aria-label':'Dagen waarop deze taak telt'});
+  DAYS.forEach((n,d)=>{
+    const on=t.days.includes(d),b=el('button','dbtn',n,{type:'button','aria-pressed':String(on)});
+    b.onclick=()=>{
+      if(on){if(t.days.length===1)return;t.days=t.days.filter(x=>x!==d)}else t.days=[...t.days,d].sort();
+      refresh();
+    };
+    dg.append(b);
+  });
+  const up=btn('↑','sm',()=>moveTask(c,t,list[idx-1]));up.disabled=idx===0;up.setAttribute('aria-label','Omhoog');
+  const down=btn('↓','sm',()=>moveTask(c,t,list[idx+1]));down.disabled=idx===list.length-1;down.setAttribute('aria-label','Omlaag');
+  const cp=btn('Kopieer','sm',()=>{copying=copying===t.id?null:t.id;renderSettings()});
+  const rm=btn('Verwijder','sm danger',()=>{
+    if(!confirm('"'+t.label+'" verwijderen? Bestaande vinkjes voor deze taak worden ook gewist.'))return;
+    c.tasks=c.tasks.filter(x=>x.id!==t.id);
+    for(const k of Object.keys(data.checks))if(k.startsWith(c.id+'|'+t.id+'|'))delete data.checks[k];
+    refresh();
+  });
+  r2.append(blk,dg,up,down,cp,rm);
+  card.append(r1,r2);
+
+  if(copying===t.id){
+    const pick=el('div','row2');
+    pick.append(el('span','small','Kopieer naar:'));
+    data.children.forEach((k,i)=>{
+      if(i===settingsChild)return;
+      pick.append(btn(k.avatar+' '+k.name,'sm main',()=>{
+        if(k.tasks.some(x=>x.label===t.label&&x.icon===t.icon))note='"'+t.label+'" staat al bij '+k.name+'.';
+        else{k.tasks.push({id:newId(),icon:t.icon,label:t.label,days:[...t.days],block:t.block});note='"'+t.label+'" is gekopieerd naar '+k.name+'.'}
+        copying=null;refresh();
+      }));
+    });
+    pick.append(btn('Annuleer','sm',()=>{copying=null;renderSettings()}));
+    card.append(pick);
+  }
+  return card;
+}
+
+function buildSettings(){
   const c=data.children[settingsChild],root=el('div','dlg');
+  const shownNote=note;note='';
   const top=el('div','top');top.append(el('h2',null,'⚙️ Instellingen voor ouders'),btn('Sluiten','',()=>dlg.close()));
   root.append(top);
 
@@ -285,44 +414,67 @@ function renderSettings(){
   root.append(srow,tests,
     el('p','small','Hoor je niets? Zet het volume hoger en controleer de stil-schakelaar van de iPad. De test van het weekfeest wijzigt geen gegevens en volgt de geluidsinstelling.'));
 
-  root.append(el('h3',null,'Namen en plaatjes'));
+  root.append(el('h3',null,'Namen, plaatjes en kleuren'));
   data.children.forEach((k,i)=>{
-    const row=el('div','row'),sel=el('select',null,null,{'aria-label':'Plaatje kind '+(i+1)});
+    const box=el('div','kid'),row=el('div','row'),sel=el('select',null,null,{'aria-label':'Plaatje kind '+(i+1)});
     AVATARS.concat(AVATARS.includes(k.avatar)?[]:[k.avatar]).forEach(a=>{const o=el('option',null,a);o.value=a;if(a===k.avatar)o.selected=true;sel.append(o)});
     sel.onchange=()=>{k.avatar=sel.value;persist();render()};
     const inp=el('input',null,null,{type:'text',maxlength:'30','aria-label':'Naam kind '+(i+1)});inp.value=k.name;
     inp.onchange=()=>{k.name=inp.value.trim()||'Kind '+(i+1);inp.value=k.name;persist();render()};
-    row.append(sel,inp);root.append(row);
+    row.append(sel,inp);
+    const sw=el('div','swatches',null,{role:'group','aria-label':'Kleur van '+k.name});
+    COLORS.forEach((col,n)=>{
+      const on=col===k.color,s=el('button','sw'+(on?' on':''),on?'✓':'',{type:'button','aria-label':'Kleur '+(n+1),'aria-pressed':String(on)});
+      s.style.background=col;s.onclick=()=>{k.color=col;refresh()};sw.append(s);
+    });
+    box.append(row,sw);root.append(box);
   });
 
   root.append(el('h3',null,'Taken'));
   const who=el('select',null,null,{'aria-label':'Taken van welk kind'});
   data.children.forEach((k,i)=>{const o=el('option',null,k.avatar+' '+k.name);o.value=i;if(i===settingsChild)o.selected=true;who.append(o)});
-  who.onchange=()=>{settingsChild=Number(who.value);renderSettings()};
-  root.append(who);
-  c.tasks.forEach(t=>{
-    const row=el('div','row'),sel=el('select',null,null,{'aria-label':'Pictogram'});
-    ICONS.concat(ICONS.includes(t.icon)?[]:[t.icon]).forEach(i=>{const o=el('option',null,i);o.value=i;if(i===t.icon)o.selected=true;sel.append(o)});
-    sel.onchange=()=>{t.icon=sel.value;persist();render()};
-    const inp=el('input',null,null,{type:'text',maxlength:'70','aria-label':'Taak'});inp.value=t.label;
-    inp.onchange=()=>{t.label=inp.value.trim()||'Taak';inp.value=t.label;persist();render()};
-    const rm=btn('Verwijder','danger',()=>{
-      if(!confirm('"'+t.label+'" verwijderen? Bestaande vinkjes voor deze taak worden ook gewist.'))return;
-      c.tasks=c.tasks.filter(x=>x.id!==t.id);
-      for(const k of Object.keys(data.checks))if(k.startsWith(c.id+'|'+t.id+'|'))delete data.checks[k];
-      persist();render();renderSettings();
-    });
-    row.append(sel,inp,rm);root.append(row);
+  who.onchange=()=>{settingsChild=Number(who.value);copying=null;renderSettings()};
+  root.append(who,el('p','small','Kies per taak ☀️ ochtend of 🌙 avond, de dagen waarop de taak telt en de volgorde met de pijltjes. Taken met een ander blok dan de rest verschijnen onder een eigen kopje.'));
+  if(shownNote)root.append(el('p','notice',shownNote,{role:'status'}));
+  ['ochtend','avond'].forEach(block=>{
+    const list=c.tasks.filter(t=>(t.block==='avond')===(block==='avond'));
+    root.append(el('h4',null,BLOCKS[block]));
+    if(!list.length)root.append(el('p','small','Geen taken in dit blok.'));
+    list.forEach((t,idx)=>root.append(taskCard(c,t,list,idx)));
   });
   const add=el('div','actions');
   add.append(btn('+ Taak toevoegen','main',()=>{
-    c.tasks.push({id:'taak'+Date.now()+'-'+Math.random().toString(36).slice(2,7),icon:'⭐',label:'Nieuwe taak'});
-    persist();render();renderSettings();
+    c.tasks.push({id:newId(),icon:'⭐',label:'Nieuwe taak',days:[...ALL_DAYS],block:'ochtend'});
+    refresh();
   }));
   root.append(add,el('p','small','Wijzigingen worden direct bewaard.'));
 
+  root.append(el('h3',null,'Sparen voor een beloning'));
+  const bal=balance(c);
+  root.append(el('p','small','Elke dag waarop alle taken klaar zijn levert 1 ⭐ op. Laat de naam leeg om geen doel in te stellen.'));
+  const g=c.goal,grow=el('div','row');
+  const gname=el('input',null,null,{type:'text',maxlength:'40',placeholder:'Bijvoorbeeld: Filmavond','aria-label':'Beloning voor '+c.name});gname.value=g?g.name:'';
+  const gn=el('input',null,null,{type:'number',min:'1',max:'99',inputmode:'numeric','aria-label':'Aantal sterren'});gn.value=g?g.stars:10;
+  gn.style.maxWidth='110px';
+  const saveGoal=()=>{
+    const nm=gname.value.trim(),n=Math.min(99,Math.max(1,parseInt(gn.value,10)||10));
+    c.goal=nm?{name:nm.slice(0,40),stars:n}:null;refresh();
+  };
+  gname.onchange=saveGoal;gn.onchange=saveGoal;
+  grow.append(gname,gn,el('span',null,'⭐'));
+  root.append(grow,el('p','small','Gespaard door '+c.name+': '+bal+' ⭐ (verdiend '+earned(c)+', uitgegeven '+c.spent+').'));
+  if(c.goal){
+    const give=btn('🎁 Beloning uitgeven (−'+c.goal.stars+' ⭐)','main',()=>{
+      if(!confirm('"'+c.goal.name+'" uitgeven? Dit haalt '+c.goal.stars+' sterren van het potje van '+c.name+' af.'))return;
+      c.spent+=c.goal.stars;refresh();
+    });
+    give.disabled=bal<c.goal.stars;
+    root.append(give);
+    if(give.disabled)root.append(el('p','small','Nog '+(c.goal.stars-bal)+' ⭐ te gaan.'));
+  }
+
   root.append(el('h3',null,'Back-up'));
-  root.append(el('p','small','Een back-up bevat alle kinderen, taken en de volledige historie. Bewaar hem in Bestanden of iCloud Drive.'));
+  root.append(el('p','small','Een back-up bevat alle kinderen, taken, sterren en de volledige historie. Bewaar hem in Bestanden of iCloud Drive.'));
   const acts=el('div','actions');
   const imp=el('input',null,null,{type:'file',accept:'application/json,.json',class:'visually-hidden',id:'import'});
   imp.onchange=importBackup;
@@ -335,7 +487,8 @@ function renderSettings(){
     if(!confirm('Alle vinkjes van '+c.name+' voor de getoonde week verwijderen?'))return;
     const dates=Array.from({length:7},(_,i)=>keyDate(dateAt(i)));
     for(const k of Object.keys(data.checks)){const p=k.split('|');if(p[0]===c.id&&dates.includes(p[2]))delete data.checks[k]}
-    persist();render();
+    for(const dk of dates)if(!dayComplete(c,dk))delete data.stars[c.id+'|'+dk];
+    persist();render();renderSettings();
   });
   root.append(reset);
   dlg.replaceChildren(root);
@@ -363,7 +516,7 @@ async function importBackup(ev){
     const n=Object.keys(p.checks).length;
     if(!confirm('Huidige gegevens vervangen door deze back-up ('+n+' vinkjes)?'))return;
     p.lastBackup=p.lastBackup||keyDate(new Date()); // zojuist uit een back-up hersteld = veilig bewaard
-    data=p;selected=0;settingsChild=0;store.corrupt=false;persist();render();renderSettings();
+    data=p;selected=0;settingsChild=0;copying=null;store.corrupt=false;persist();render();renderSettings();
   }catch(e){alert('Dit is geen geldige back-up van het takenbord.')}
   finally{ev.target.value=''}
 }
@@ -374,7 +527,7 @@ $('prev').onclick=()=>{offset--;render()};
 $('next').onclick=()=>{offset++;render()};
 $('current').onclick=()=>{offset=0;render()};
 $('parentBtn').onclick=openParent;
-dlg.addEventListener('close',()=>{dlg.replaceChildren();render()});
+dlg.addEventListener('close',()=>{dlg.replaceChildren();copying=null;render()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!dlg.open)render()}); // nieuwe dag → highlight bijwerken
 render();
 initStorageInfo().then(updateAlerts);
